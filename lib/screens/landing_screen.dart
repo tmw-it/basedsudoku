@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cool_sudoku/models/sudoku_game.dart';
-import 'package:cool_sudoku/screens/game_screen.dart';
-import 'package:cool_sudoku/screens/techniques_page.dart';
-import 'package:cool_sudoku/screens/settings_page.dart';
-import 'package:cool_sudoku/theme/nord_theme.dart';
-import 'package:cool_sudoku/widgets/app_footer.dart';
-import 'package:cool_sudoku/screens/about_page.dart';
+import 'package:based_sudoku/models/sudoku_game.dart';
+import 'package:based_sudoku/screens/game_screen.dart';
+import 'package:based_sudoku/screens/techniques_page.dart';
+import 'package:based_sudoku/screens/settings_page.dart';
+import 'package:based_sudoku/theme/nord_theme.dart';
+import 'package:based_sudoku/widgets/app_footer.dart';
+import 'package:based_sudoku/screens/about_page.dart';
 
 class LandingScreen extends StatefulWidget {
   final void Function(Difficulty) onStartGame;
@@ -61,7 +61,7 @@ class _LandingScreenState extends State<LandingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cool Sudoku'),
+        title: const Text('Based Sudoku'),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

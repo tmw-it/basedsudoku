@@ -6,7 +6,7 @@ class MainFlutterWindow: NSWindow {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
-    self.setFrame(NSRect(x: windowFrame.origin.x, y: windowFrame.origin.y, width: 800, height: 1000), display: true)
+    self.setFrame(NSRect(x: windowFrame.origin.x, y: windowFrame.origin.y, width: 600, height: 800), display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 

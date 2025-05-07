@@ -35,97 +35,100 @@ class NumberPad extends StatelessWidget {
       padding: const EdgeInsets.all(8.0),
       child: Column(
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildControlButton(
-                icon: Icons.undo,
-                onPressed: onUndo,
-                color: onUndo != null ? textColor : textColor.withOpacity(0.3),
-                backgroundColor: buttonColor,
-              ),
-              _buildControlButton(
-                icon: Icons.redo,
-                onPressed: onRedo,
-                color: onRedo != null ? textColor : textColor.withOpacity(0.3),
-                backgroundColor: buttonColor,
-              ),
-              _buildControlButton(
-                icon: isNoteMode ? Icons.edit : Icons.edit_off,
-                onPressed: onNoteModeToggled,
-                color: textColor,
-                backgroundColor: buttonColor,
-              ),
-              _buildControlButton(
-                icon: Icons.backspace,
-                onPressed: onClearPressed,
-                color: textColor,
-                backgroundColor: buttonColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (isDesktop)
-            // Desktop: Single row of numbers
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: List.generate(9, (index) {
-                final number = index + 1;
-                final isUsed = usedNumbers.contains(number);
-                return _buildNumberButton(
-                  number: number,
-                  isUsed: isUsed,
-                  buttonColor: buttonColor,
-                  textColor: textColor,
-                  onPressed: () => onNumberPressed(number),
-                );
-              }),
-            )
-          else
-            // Mobile: Two rows of numbers
-            Column(
+          // Row 1: Undo/Redo and Notes buttons, perfectly aligned with number buttons
+          SizedBox(
+            width: 296, // 5*48 + 4*8
+            child: Row(
               children: [
-                // First row: 1-5
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: List.generate(5, (index) {
-                    final number = index + 1;
-                    final isUsed = usedNumbers.contains(number);
-                    return _buildNumberButton(
-                      number: number,
-                      isUsed: isUsed,
-                      buttonColor: buttonColor,
-                      textColor: textColor,
-                      onPressed: () => onNumberPressed(number),
-                    );
-                  }),
+                SizedBox(
+                  width: 48,
+                  child: _buildControlButton(
+                    icon: Icons.undo,
+                    onPressed: onUndo,
+                    color: onUndo != null ? textColor : textColor.withOpacity(0.3),
+                    backgroundColor: buttonColor,
+                  ),
                 ),
-                const SizedBox(height: 8),
-                // Second row: 6-9
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: List.generate(4, (index) {
-                    final number = index + 6;
-                    final isUsed = usedNumbers.contains(number);
-                    return _buildNumberButton(
-                      number: number,
-                      isUsed: isUsed,
-                      buttonColor: buttonColor,
-                      textColor: textColor,
-                      onPressed: () => onNumberPressed(number),
-                    );
-                  }),
+                SizedBox(width: 8),
+                SizedBox(
+                  width: 48,
+                  child: _buildControlButton(
+                    icon: Icons.redo,
+                    onPressed: onRedo,
+                    color: onRedo != null ? textColor : textColor.withOpacity(0.3),
+                    backgroundColor: buttonColor,
+                  ),
+                ),
+                SizedBox(width: 8),
+                const SizedBox(width: 48), // Empty above 3
+                SizedBox(width: 8),
+                const SizedBox(width: 48), // Empty above 4
+                SizedBox(width: 8),
+                SizedBox(
+                  width: 48,
+                  child: _buildControlButton(
+                    icon: isNoteMode ? Icons.edit : Icons.edit_off,
+                    onPressed: onNoteModeToggled,
+                    color: textColor,
+                    backgroundColor: buttonColor,
+                  ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 8),
+          // Row 2: Numbers 1-5
+          SizedBox(
+            width: 296,
+            child: Row(
+              children: [
+                for (int i = 1; i <= 5; i++) ...[
+                  SizedBox(
+                    width: 48,
+                    child: _buildNumberButton(
+                      number: i,
+                      isUsed: usedNumbers.contains(i),
+                      buttonColor: buttonColor,
+                      textColor: textColor,
+                      onPressed: () => onNumberPressed(i),
+                    ),
+                  ),
+                  if (i != 5) SizedBox(width: 8),
+                ]
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Row 3: Numbers 6-9 and Delete
+          SizedBox(
+            width: 296,
+            child: Row(
+              children: [
+                for (int i = 6; i <= 9; i++) ...[
+                  SizedBox(
+                    width: 48,
+                    child: _buildNumberButton(
+                      number: i,
+                      isUsed: usedNumbers.contains(i),
+                      buttonColor: buttonColor,
+                      textColor: textColor,
+                      onPressed: () => onNumberPressed(i),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                ],
+                SizedBox(
+                  width: 48,
+                  child: _buildControlButton(
+                    icon: Icons.backspace,
+                    onPressed: onClearPressed,
+                    color: textColor,
+                    backgroundColor: buttonColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -143,7 +146,7 @@ class NumberPad extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: buttonColor,
         foregroundColor: isUsed ? textColor.withOpacity(0.3) : textColor,
-        minimumSize: const Size(48, 48),
+        fixedSize: const Size(48, 48),
         padding: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -167,7 +170,7 @@ class NumberPad extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         foregroundColor: color,
-        minimumSize: const Size(48, 48),
+        fixedSize: const Size(48, 48),
         padding: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

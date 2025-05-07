@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.sudoku"
+    namespace = "com.tmwit.basedsudoku"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.sudoku"
+        applicationId = "com.tmwit.basedsudoku"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 21
@@ -35,6 +35,16 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    // Set custom APK name
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val newName = "based_sudoku_${variant.buildType.name}_${variant.versionName}_${variant.versionCode}.apk"
+            output.outputFileName = newName
         }
     }
 }

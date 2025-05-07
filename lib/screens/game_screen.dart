@@ -138,6 +138,18 @@ class _GameScreenState extends State<GameScreen> {
             },
             child: const Text('New Puzzle'),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => LandingScreen(onStartGame: widget.onNewGame),
+                ),
+                (route) => false,
+              );
+            },
+            child: const Text('Home'),
+          ),
         ],
       ),
     );

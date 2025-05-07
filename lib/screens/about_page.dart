@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cool_sudoku/theme/nord_theme.dart';
+import 'package:based_sudoku/theme/nord_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AboutPage extends StatelessWidget {
@@ -18,7 +18,7 @@ class AboutPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         children: [
           const Text(
-            'Cool Sudoku™',
+            'Based Sudoku™',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -75,7 +75,7 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '© 2024 taytay. All rights reserved.\n'
-            'Cool Sudoku™ is a trademark of taytay.\n\n'
+            'Based Sudoku™ is a trademark of taytay.\n\n'
             'This software is licensed under the MIT License.',
             style: TextStyle(
               color: textColor.withOpacity(0.7),
@@ -85,7 +85,7 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: 24),
           TextButton(
             onPressed: () async {
-              final Uri url = Uri.parse('https://github.com/tmw-it/cool_sudoku');
+              final Uri url = Uri.parse('https://github.com/tmw-it/basedsudoku');
               if (await canLaunchUrl(url)) {
                 await launchUrl(url);
               }

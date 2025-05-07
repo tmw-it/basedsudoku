@@ -300,10 +300,10 @@ class PuzzleGenerator {
     return game;
   }
 
-  // Pre-generate and cache 10 master puzzles
-  static void preGenerateMasterPuzzles() {
+  // Pre-generate and cache master puzzles
+  static Future<void> preGenerateMasterPuzzles({int count = 10}) async {
     _masterPuzzleCache.clear();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < count; i++) {
       List<List<int>> solution = generateSolution();
       List<List<int>> puzzle = List.generate(
         9,
@@ -324,13 +324,15 @@ class PuzzleGenerator {
         }
       }
       _masterPuzzleCache.add([puzzle, solution]);
+      // Allow other tasks to run
+      await Future.microtask(() {});
     }
   }
 
-  // Pre-generate and cache 10 evil puzzles
-  static void preGenerateEvilPuzzles() {
+  // Pre-generate and cache evil puzzles
+  static Future<void> preGenerateEvilPuzzles({int count = 10}) async {
     _evilPuzzleCache.clear();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < count; i++) {
       List<List<int>> solution = generateSolution();
       List<List<int>> puzzle = List.generate(
         9,
@@ -351,6 +353,8 @@ class PuzzleGenerator {
         }
       }
       _evilPuzzleCache.add([puzzle, solution]);
+      // Allow other tasks to run
+      await Future.microtask(() {});
     }
   }
 

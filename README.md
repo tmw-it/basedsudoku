@@ -1,4 +1,4 @@
-# Cool Sudoku
+# Based Sudoku
 
 A modern, user-friendly Sudoku game with a beautiful Nord theme. Available on Android, iOS, and desktop platforms.
 
@@ -31,7 +31,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Branding and Usage Restrictions:
 
 While the code is open source, the following are protected:
-- The "Cool Sudoku" name and branding
+- The "Based Sudoku" name and branding
 - The app's visual design and user interface
 - The app store presence and distribution
 - Any associated trademarks or service marks
