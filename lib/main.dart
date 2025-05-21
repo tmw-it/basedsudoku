@@ -10,8 +10,28 @@ import 'package:based_sudoku/theme/nord_theme.dart';
 import 'package:based_sudoku/theme/android_theme.dart';
 import 'dart:io' show Platform;
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+
+// Error handler to prevent app crashes
+void _errorHandler(FlutterErrorDetails details) {
+  // Log the error
+  print('ERROR: ${details.exception}');
+  print('STACK TRACE: ${details.stack}');
+  
+  // Only rethrow in debug mode
+  if (kDebugMode) {
+    FlutterError.dumpErrorToConsole(details);
+  }
+}
 
 void main() {
+  // Set up error handling
+  FlutterError.onError = _errorHandler;
+  
+  // Catch errors not caught by Flutter
+  runZonedGuarded(() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Lock orientation to portrait mode
   SystemChrome.setPreferredOrientations([
@@ -19,6 +39,10 @@ void main() {
     DeviceOrientation.portraitDown,
   ]);
   runApp(const MyApp());
+  }, (error, stack) {
+    print('UNHANDLED ERROR: $error');
+    print('STACK TRACE: $stack');
+  });
 }
 
 class MyApp extends StatefulWidget {
@@ -36,10 +60,13 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Start puzzle generation in background
+    // Start puzzle generation in background with reduced initial load
     Future.microtask(() async {
-      await PuzzleGenerator.preGenerateMasterPuzzles(count: 5);
-      await PuzzleGenerator.preGenerateEvilPuzzles(count: 5);
+      // Generate fewer puzzles initially
+      await PuzzleGenerator.preGenerateMasterPuzzles(count: 2);
+      // Add delay before generating evil puzzles
+      await Future.delayed(const Duration(milliseconds: 500));
+      await PuzzleGenerator.preGenerateEvilPuzzles(count: 2);
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -48,24 +75,74 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void _newGame(Difficulty difficulty, {bool forceNew = false}) {
-    // Close any open dialogs first
+  void _newGame(Difficulty difficulty, {bool forceNew = false}) async {
     Navigator.of(_navigatorKey.currentContext!, rootNavigator: true)
         .popUntil((route) => route is PageRoute);
 
-    // Only generate a new game if forced or if no game exists
-    if (forceNew || !_games.containsKey(difficulty)) {
-      _games[difficulty] = PuzzleGenerator.generateGame(difficulty);
+    SudokuGame? game;
+    final prefs = await SharedPreferences.getInstance();
+    final rawSaved = prefs.getString('based_sudoku_saved_game');
+    print('[DEBUG] (START) Raw saved game in SharedPreferences: $rawSaved');
+    bool loadedFromSave = false;
+    
+    // Only load saved game if not forcing a new game and the difficulties match
+    if (!forceNew) {
+      final jsonStr = rawSaved;
+      if (jsonStr != null) {
+        print('[DEBUG] Found saved game in SharedPreferences: $jsonStr');
+        try {
+          final jsonMap = json.decode(jsonStr);
+          print('[DEBUG] jsonMap: $jsonMap');
+          final loadedGame = SudokuGame.fromJson(jsonMap);
+          final loadedId = loadedGame?.id;
+          print('[DEBUG] loadedGame ID: $loadedId');
+          print('[DEBUG] loadedGame: $loadedGame');
+          print('[DEBUG] loadedGame.isCompleted: ${loadedGame?.isCompleted} (type: ${loadedGame?.isCompleted.runtimeType})');
+          print('[DEBUG] loadedGame.difficulty: ${loadedGame?.difficulty}');
+          
+          if (loadedGame != null) {
+            // Only restore if the difficulties match and the game isn't completed
+            if (!loadedGame.isCompleted && loadedGame.difficulty == difficulty) {
+              print('[DEBUG] Restoring saved game with matching difficulty: ${loadedGame.difficulty}');
+              game = loadedGame;
+              loadedFromSave = true;
+            } else {
+              print('[DEBUG] Saved game has different difficulty or is completed. Removing.');
+              await prefs.remove('based_sudoku_saved_game');
+            }
+          } else {
+            print('[DEBUG] Saved game is invalid. Removing.');
+            await prefs.remove('based_sudoku_saved_game');
+          }
+        } catch (e) {
+          print('[DEBUG] Error decoding saved game: $e');
+          await prefs.remove('based_sudoku_saved_game');
+        }
+      } else {
+        print('[DEBUG] No saved game found in SharedPreferences');
+      }
+    } else {
+      // If forcing new, remove any saved game
+      print('[DEBUG] Forcing new game, clearing saved game');
+      await prefs.remove('based_sudoku_saved_game');
     }
-    final game = _games[difficulty]!;
+    
+    // Generate a new game if we didn't load a saved one
+    if (game == null) {
+      print('[DEBUG] Generating new puzzle for difficulty: ${difficulty.name}');
+      game = PuzzleGenerator.generateGame(difficulty);
+    }
+    
+    _games[difficulty] = game;
 
+    print('[DEBUG] Pushing GameScreen with game ID: ${game.id}, loadedFromSave: $loadedFromSave');
     _navigatorKey.currentState?.pushReplacement(
       MaterialPageRoute(
         builder: (_) => ChangeNotifierProvider(
-          create: (_) => game,
+          create: (_) => game!,
           child: GameScreen(
             difficulty: difficulty,
-            onNewGame: (d) => _newGame(d, forceNew: true),
+            onNewGame: (d, {bool forceNew = false}) => _newGame(d, forceNew: forceNew),
           ),
         ),
       ),
@@ -99,8 +176,8 @@ class _MyAppState extends State<MyApp> {
                   ),
                 )
               : LandingScreen(
-                  onStartGame: _newGame,
-                ),
+                  onStartGame: (d, {bool forceNew = false}) => _newGame(d, forceNew: forceNew),
+          ),
         ),
       ),
     );

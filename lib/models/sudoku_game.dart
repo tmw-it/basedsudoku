@@ -75,7 +75,9 @@ class SudokuGame extends ChangeNotifier {
     for (int i = 0; i < 3; i++) {
       for (int j = 0; j < 3; j++) {
         if (boxRow + i != row && boxCol + j != col && 
-            puzzle[boxRow + i][boxCol + j] == value) return false;
+            puzzle[boxRow + i][boxCol + j] == value) {
+          return false;
+        }
       }
     }
     
@@ -123,6 +125,7 @@ class SudokuGame extends ChangeNotifier {
       previousValue: previousValue,
       newValue: value,
       previousNotes: previousNotes,
+      newNotes: Set<int>.from(notes[row][col]),
       isNote: false,
     ));
     redoHistory.clear();
@@ -132,8 +135,9 @@ class SudokuGame extends ChangeNotifier {
   void clearCell(int row, int col) {
     if (isFixed[row][col]) return;
     final previousValue = puzzle[row][col];
+    final previousNotes = Set<int>.from(notes[row][col]);
     puzzle[row][col] = 0;
-    // Try to restore notes if the last move for this cell had previousNotes
+    // Restore notes if the last move for this cell had previousNotes
     Move? last = moveHistory.isNotEmpty ? moveHistory.last : null;
     if (last != null && last.row == row && last.col == col && last.previousNotes != null) {
       notes[row][col] = Set<int>.from(last.previousNotes!);
@@ -143,6 +147,8 @@ class SudokuGame extends ChangeNotifier {
       col: col,
       previousValue: previousValue,
       newValue: 0,
+      previousNotes: previousNotes,
+      newNotes: Set<int>.from(notes[row][col]),
       isNote: false,
     ));
     redoHistory.clear();
@@ -192,39 +198,31 @@ class SudokuGame extends ChangeNotifier {
 
   void undo() {
     if (!canUndo()) return;
-    
     final lastMove = moveHistory.removeLast();
     redoHistory.add(lastMove);
-    
     // Restore the previous state
     if (lastMove.isNote) {
       notes[lastMove.row][lastMove.col] = lastMove.previousNotes ?? {};
     } else {
       puzzle[lastMove.row][lastMove.col] = lastMove.previousValue ?? 0;
+      notes[lastMove.row][lastMove.col] = lastMove.previousNotes ?? {};
     }
-
-    // Update selected cell to the position of the move
     setSelectedCell(lastMove.row, lastMove.col);
-    
     notifyListeners();
   }
 
   void redo() {
     if (!canRedo()) return;
-    
     final move = redoHistory.removeLast();
     moveHistory.add(move);
-    
     // Apply the move again
     if (move.isNote) {
       notes[move.row][move.col] = move.newNotes ?? {};
     } else {
       puzzle[move.row][move.col] = move.newValue ?? 0;
+      notes[move.row][move.col] = move.newNotes ?? {};
     }
-
-    // Update selected cell to the position of the move
     setSelectedCell(move.row, move.col);
-    
     notifyListeners();
   }
 
@@ -286,6 +284,50 @@ class SudokuGame extends ChangeNotifier {
     isCompleted = value;
     notifyListeners();
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'difficulty': difficulty.name,
+      'solution': solution,
+      'puzzle': puzzle,
+      'notes': notes.map((row) => row.map((cell) => cell.toList()).toList()).toList(),
+      'isFixed': isFixed,
+      'timeElapsed': timeElapsed.inSeconds,
+      'isPaused': isPaused,
+      'isCompleted': isCompleted,
+      'moveHistory': moveHistory.map((m) => m.toJson()).toList(),
+      'redoHistory': redoHistory.map((m) => m.toJson()).toList(),
+      'selectedRow': selectedRow,
+      'selectedCol': selectedCol,
+    };
+  }
+
+  static SudokuGame? fromJson(Map<String, dynamic> json) {
+    // Validate required fields
+    if (json['id'] == null || json['difficulty'] == null || json['solution'] == null || json['puzzle'] == null || json['notes'] == null || json['isFixed'] == null) {
+      return null;
+    }
+    try {
+      return SudokuGame(
+        id: json['id'],
+        difficulty: Difficulty.values.firstWhere((d) => d.name == json['difficulty']),
+        solution: List<List<int>>.from((json['solution'] as List).map((row) => List<int>.from(row))),
+        puzzle: List<List<int>>.from((json['puzzle'] as List).map((row) => List<int>.from(row))),
+        notes: List<List<Set<int>>>.from((json['notes'] as List).map((row) => List<Set<int>>.from((row as List).map((cell) => Set<int>.from(cell))))),
+        isFixed: List<List<bool>>.from((json['isFixed'] as List).map((row) => List<bool>.from(row))),
+        timeElapsed: Duration(seconds: json['timeElapsed'] ?? 0),
+        isPaused: json['isPaused'] ?? false,
+        isCompleted: json['isCompleted'] ?? false,
+      )
+        ..moveHistory.addAll((json['moveHistory'] as List? ?? []).map((m) => Move.fromJson(m)))
+        ..redoHistory.addAll((json['redoHistory'] as List? ?? []).map((m) => Move.fromJson(m)))
+        ..selectedRow = json['selectedRow']
+        ..selectedCol = json['selectedCol'];
+    } catch (e) {
+      return null;
+    }
+  }
 }
 
 class Move {
@@ -306,4 +348,24 @@ class Move {
     this.newNotes,
     required this.isNote,
   });
+
+  Map<String, dynamic> toJson() => {
+    'row': row,
+    'col': col,
+    'previousValue': previousValue,
+    'newValue': newValue,
+    'previousNotes': previousNotes?.toList(),
+    'newNotes': newNotes?.toList(),
+    'isNote': isNote,
+  };
+
+  static Move fromJson(Map<String, dynamic> json) => Move(
+    row: json['row'],
+    col: json['col'],
+    previousValue: json['previousValue'],
+    newValue: json['newValue'],
+    previousNotes: json['previousNotes'] != null ? Set<int>.from(json['previousNotes']) : null,
+    newNotes: json['newNotes'] != null ? Set<int>.from(json['newNotes']) : null,
+    isNote: json['isNote'],
+  );
 } 

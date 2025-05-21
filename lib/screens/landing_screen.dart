@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:based_sudoku/models/sudoku_game.dart';
-import 'package:based_sudoku/screens/game_screen.dart';
 import 'package:based_sudoku/screens/techniques_page.dart';
 import 'package:based_sudoku/screens/settings_page.dart';
-import 'package:based_sudoku/theme/nord_theme.dart';
 import 'package:based_sudoku/widgets/app_footer.dart';
 import 'package:based_sudoku/screens/about_page.dart';
 
 class LandingScreen extends StatefulWidget {
-  final void Function(Difficulty) onStartGame;
+  final void Function(Difficulty, {bool forceNew}) onStartGame;
 
   const LandingScreen({super.key, required this.onStartGame});
 
@@ -61,7 +59,14 @@ class _LandingScreenState extends State<LandingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Based Sudoku'),
+        title: const Text(
+          'Based Sudoku',
+          style: TextStyle(
+            fontFamily: 'Cubano',
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -92,7 +97,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: InkWell(
-                        onTap: () => widget.onStartGame(difficulty),
+                        onTap: () => widget.onStartGame(difficulty, forceNew: false),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Row(
@@ -126,7 +131,7 @@ class _LandingScreenState extends State<LandingScreen> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                   const Spacer(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,

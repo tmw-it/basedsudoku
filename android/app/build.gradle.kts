@@ -25,7 +25,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 21
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
@@ -35,16 +35,9 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
-        }
-    }
-
-    // Set custom APK name
-    applicationVariants.all {
-        val variant = this
-        variant.outputs.all {
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val newName = "based_sudoku_${variant.buildType.name}_${variant.versionName}_${variant.versionCode}.apk"
-            output.outputFileName = newName
+            
+            // Set custom APK name for release builds
+            setProperty("archivesBaseName", "based_sudoku_${defaultConfig.versionName}_${defaultConfig.versionCode}")
         }
     }
 }

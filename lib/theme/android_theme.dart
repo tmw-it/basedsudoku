@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cool_sudoku/theme/nord_theme.dart';
+import 'package:based_sudoku/theme/nord_theme.dart';
 
 class AndroidTheme {
   static ThemeData get light {

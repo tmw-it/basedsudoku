@@ -33,19 +33,18 @@ class NordTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: NordColors.nord10,
         onPrimary: NordColors.nord6,
         secondary: NordColors.nord7,
         onSecondary: NordColors.nord0,
         error: NordColors.nord11,
-        background: NordColors.nord6,
         surface: NordColors.nord5,
         onSurface: NordColors.nord0,
       ),
       scaffoldBackgroundColor: NordColors.nord6,
       textTheme: const TextTheme(),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: NordColors.nord10,
         foregroundColor: NordColors.nord6,
       ),
@@ -62,19 +61,18 @@ class NordTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: NordColors.nord8,
         onPrimary: NordColors.nord0,
         secondary: NordColors.nord7,
         onSecondary: NordColors.nord0,
         error: NordColors.nord11,
-        background: NordColors.nord0,
         surface: NordColors.nord1,
         onSurface: NordColors.nord4,
       ),
       scaffoldBackgroundColor: NordColors.nord0,
       textTheme: const TextTheme(),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: NordColors.nord1,
         foregroundColor: NordColors.nord4,
       ),

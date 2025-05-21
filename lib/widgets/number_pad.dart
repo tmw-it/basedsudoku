@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:cool_sudoku/theme/nord_theme.dart';
+import 'package:based_sudoku/theme/nord_theme.dart';
 import 'dart:io' show Platform;
 
 class NumberPad extends StatelessWidget {
@@ -49,7 +48,7 @@ class NumberPad extends StatelessWidget {
                     backgroundColor: buttonColor,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 SizedBox(
                   width: 48,
                   child: _buildControlButton(
@@ -59,11 +58,11 @@ class NumberPad extends StatelessWidget {
                     backgroundColor: buttonColor,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 const SizedBox(width: 48), // Empty above 3
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 const SizedBox(width: 48), // Empty above 4
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 SizedBox(
                   width: 48,
                   child: _buildControlButton(
@@ -93,7 +92,7 @@ class NumberPad extends StatelessWidget {
                       onPressed: () => onNumberPressed(i),
                     ),
                   ),
-                  if (i != 5) SizedBox(width: 8),
+                  if (i != 5) const SizedBox(width: 8),
                 ]
               ],
             ),
@@ -115,7 +114,7 @@ class NumberPad extends StatelessWidget {
                       onPressed: () => onNumberPressed(i),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                 ],
                 SizedBox(
                   width: 48,

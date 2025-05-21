@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cool_sudoku/models/settings_model.dart';
-import 'package:cool_sudoku/models/sudoku_game.dart';
+import 'package:based_sudoku/models/settings_model.dart';
+import 'package:based_sudoku/models/sudoku_game.dart';
 
 class SettingsPage extends StatelessWidget {
-  final void Function(Difficulty)? onNewGame;
+  final void Function(Difficulty, {bool forceNew})? onNewGame;
   const SettingsPage({super.key, this.onNewGame});
 
   @override
@@ -30,6 +30,11 @@ class SettingsPage extends StatelessWidget {
             onChanged: (_) => settings.toggleHighlightMatchingNumbers(),
           ),
           SwitchListTile(
+            title: const Text('Highlight Conflicts'),
+            value: settings.highlightConflicts,
+            onChanged: (_) => settings.toggleHighlightConflicts(),
+          ),
+          SwitchListTile(
             title: const Text('Hide Timer'),
             value: settings.hideTimer,
             onChanged: (_) => settings.toggleHideTimer(),
@@ -39,46 +44,7 @@ class SettingsPage extends StatelessWidget {
             value: settings.isDarkMode,
             onChanged: (_) => settings.toggleDarkMode(),
           ),
-          SwitchListTile(
-            title: const Text('Highlight Conflicts'),
-            value: settings.highlightConflicts,
-            onChanged: (_) => settings.toggleHighlightConflicts(),
-          ),
           const Divider(),
-          ListTile(
-            title: const Text('Difficulty'),
-            trailing: DropdownButton<Difficulty>(
-              value: settings.difficulty,
-              onChanged: (d) {
-                if (d != null) {
-                  settings.setDifficulty(d);
-                  if (onNewGame != null) onNewGame!(d);
-                }
-              },
-              items: [
-                DropdownMenuItem(
-                  value: Difficulty.easy,
-                  child: Text('Easy'),
-                ),
-                DropdownMenuItem(
-                  value: Difficulty.medium,
-                  child: Text('Medium'),
-                ),
-                DropdownMenuItem(
-                  value: Difficulty.hard,
-                  child: Text('Hard'),
-                ),
-                DropdownMenuItem(
-                  value: Difficulty.master,
-                  child: Text('Master'),
-                ),
-                DropdownMenuItem(
-                  value: Difficulty.evil,
-                  child: Text('Evil'),
-                ),
-              ],
-            ),
-          ),
           ListTile(
             title: const Text('Auto-Pause Delay'),
             subtitle: const Text('Pause timer after inactivity'),

@@ -1,12 +1,21 @@
 import 'dart:math';
 import '../models/sudoku_game.dart';
 
+// Define the CachedPuzzle class at the top level
+class CachedPuzzle {
+  final List<List<int>> puzzle;
+  final List<List<int>> solution;
+  CachedPuzzle(this.puzzle, this.solution);
+}
+
 class PuzzleGenerator {
   static final Random _random = Random();
 
-  // Cache for master and evil puzzles (each entry is [puzzle, solution])
-  static List<List<List<List<int>>>> _masterPuzzleCache = [];
-  static List<List<List<List<int>>>> _evilPuzzleCache = [];
+  // Update cache type definitions
+  static final List<CachedPuzzle> _masterPuzzleCache = [];
+  static final List<CachedPuzzle> _evilPuzzleCache = [];
+  static const int _maxCacheSize = 5;
+  static bool _isGenerating = false;
 
   static List<List<int>> generateSolution() {
     List<List<int>> grid = List.generate(9, (_) => List.filled(9, 0));
@@ -211,60 +220,19 @@ class PuzzleGenerator {
         break;
     }
 
-    if (difficulty == Difficulty.master) {
-      // Check cache first
-      if (_masterPuzzleCache.isNotEmpty) {
-        var cached = _masterPuzzleCache.removeLast();
-        puzzle = cached[0];
-        solution = cached[1];
+    // For all difficulties, remove clues only if the puzzle remains uniquely solvable
+    List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
+    int removed = 0;
+    for (int i = 0; i < positions.length && removed < cellsToRemove; i++) {
+      int pos = positions[i];
+      int row = pos ~/ 9;
+      int col = pos % 9;
+      int backup = puzzle[row][col];
+      puzzle[row][col] = 0;
+      if (countSolutions(puzzle) != 1) {
+        puzzle[row][col] = backup;
       } else {
-        // Fallback: generate a default puzzle
-        puzzle = List.generate(
-          9,
-          (i) => List.generate(9, (j) => solution[i][j]),
-        );
-        List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
-        for (int i = 0; i < cellsToRemove; i++) {
-          int pos = positions[i];
-          int row = pos ~/ 9;
-          int col = pos % 9;
-          puzzle[row][col] = 0;
-        }
-      }
-    } else if (difficulty == Difficulty.evil) {
-      // Check cache first
-      if (_evilPuzzleCache.isNotEmpty) {
-        var cached = _evilPuzzleCache.removeLast();
-        puzzle = cached[0];
-        solution = cached[1];
-      } else {
-        // Fallback: generate a default puzzle with 17 clues
-        puzzle = List.generate(
-          9,
-          (i) => List.generate(9, (j) => solution[i][j]),
-        );
-        List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
-        for (int i = 0; i < 64; i++) {
-          int pos = positions[i];
-          int row = pos ~/ 9;
-          int col = pos % 9;
-          puzzle[row][col] = 0;
-        }
-      }
-    } else {
-      List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
-      int removed = 0;
-      for (int i = 0; i < positions.length && removed < cellsToRemove; i++) {
-        int pos = positions[i];
-        int row = pos ~/ 9;
-        int col = pos % 9;
-        int backup = puzzle[row][col];
-        puzzle[row][col] = 0;
-        if (countSolutions(puzzle) != 1) {
-          puzzle[row][col] = backup;
-        } else {
-          removed++;
-        }
+        removed++;
       }
     }
 
@@ -272,7 +240,7 @@ class PuzzleGenerator {
     for (int row = 0; row < 9; row++) {
       for (int col = 0; col < 9; col++) {
         if (puzzle[row][col] != 0 && puzzle[row][col] != solution[row][col]) {
-          print('Mismatch at ($row, $col): puzzle=${puzzle[row][col]}, solution=${solution[row][col]}');
+          print('Mismatch at ([0;36m$row[0m, [0;36m$col[0m): puzzle=${puzzle[row][col]}, solution=${solution[row][col]}');
           // Correct the solution to match the puzzle
           solution[row][col] = puzzle[row][col];
         }
@@ -300,62 +268,119 @@ class PuzzleGenerator {
     return game;
   }
 
-  // Pre-generate and cache master puzzles
-  static Future<void> preGenerateMasterPuzzles({int count = 10}) async {
-    _masterPuzzleCache.clear();
-    for (int i = 0; i < count; i++) {
-      List<List<int>> solution = generateSolution();
-      List<List<int>> puzzle = List.generate(
-        9,
-        (i) => List.generate(9, (j) => solution[i][j]),
-      );
-      List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
-      int removed = 0;
-      for (int j = 0; j < positions.length && removed < 55; j++) {
-        int pos = positions[j];
-        int row = pos ~/ 9;
-        int col = pos % 9;
-        int backup = puzzle[row][col];
-        puzzle[row][col] = 0;
-        if (countSolutions(puzzle) != 1) {
-          puzzle[row][col] = backup;
-        } else {
-          removed++;
-        }
+  // Update preGenerateMasterPuzzles method
+  static Future<void> preGenerateMasterPuzzles({int count = 2}) async {
+    if (_isGenerating) return;
+    _isGenerating = true;
+    
+    try {
+      // Clear old cache if it's too large
+      if (_masterPuzzleCache.length > _maxCacheSize) {
+        _masterPuzzleCache.clear();
       }
-      _masterPuzzleCache.add([puzzle, solution]);
-      // Allow other tasks to run
-      await Future.microtask(() {});
+
+      // Generate new puzzles
+      for (int i = 0; i < count; i++) {
+        if (_masterPuzzleCache.length >= _maxCacheSize) break;
+        
+        List<List<int>> solution = generateSolution();
+        List<List<int>> puzzle = List.generate(
+          9,
+          (i) => List.generate(9, (j) => solution[i][j]),
+        );
+        
+        // Generate puzzle with fewer attempts to reduce CPU load
+        List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
+        int removed = 0;
+        int attempts = 0;
+        const maxAttempts = 100;
+        
+        for (int j = 0; j < positions.length && removed < 55 && attempts < maxAttempts; j++) {
+          attempts++;
+          int pos = positions[j];
+          int row = pos ~/ 9;
+          int col = pos % 9;
+          int backup = puzzle[row][col];
+          puzzle[row][col] = 0;
+          
+          if (countSolutions(puzzle) == 1) {
+            removed++;
+          } else {
+            puzzle[row][col] = backup;
+          }
+          
+          if (attempts % 10 == 0) {
+            await Future.microtask(() {});
+          }
+        }
+        
+        _masterPuzzleCache.add(CachedPuzzle(
+          List.generate(9, (i) => List.from(puzzle[i])),
+          List.generate(9, (i) => List.from(solution[i]))
+        ));
+      }
+    } finally {
+      _isGenerating = false;
     }
   }
 
-  // Pre-generate and cache evil puzzles
-  static Future<void> preGenerateEvilPuzzles({int count = 10}) async {
-    _evilPuzzleCache.clear();
-    for (int i = 0; i < count; i++) {
-      List<List<int>> solution = generateSolution();
-      List<List<int>> puzzle = List.generate(
-        9,
-        (i) => List.generate(9, (j) => solution[i][j]),
-      );
-      List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
-      int removed = 0;
-      for (int j = 0; j < positions.length && removed < 64; j++) {
-        int pos = positions[j];
-        int row = pos ~/ 9;
-        int col = pos % 9;
-        int backup = puzzle[row][col];
-        puzzle[row][col] = 0;
-        if (countSolutions(puzzle) != 1) {
-          puzzle[row][col] = backup;
-        } else {
-          removed++;
-        }
+  // Update preGenerateEvilPuzzles method
+  static Future<void> preGenerateEvilPuzzles({int count = 2}) async {
+    if (_isGenerating) return;
+    _isGenerating = true;
+    
+    try {
+      if (_evilPuzzleCache.length > _maxCacheSize) {
+        _evilPuzzleCache.clear();
       }
-      _evilPuzzleCache.add([puzzle, solution]);
-      // Allow other tasks to run
-      await Future.microtask(() {});
+
+      for (int i = 0; i < count; i++) {
+        if (_evilPuzzleCache.length >= _maxCacheSize) break;
+        
+        List<List<int>> solution = generateSolution();
+        List<List<int>> puzzle = List.generate(
+          9,
+          (i) => List.generate(9, (j) => solution[i][j]),
+        );
+        
+        List<int> positions = List.generate(81, (i) => i)..shuffle(_random);
+        int removed = 0;
+        int attempts = 0;
+        const maxAttempts = 100;
+        
+        for (int j = 0; j < positions.length && removed < 64 && attempts < maxAttempts; j++) {
+          attempts++;
+          int pos = positions[j];
+          int row = pos ~/ 9;
+          int col = pos % 9;
+          int backup = puzzle[row][col];
+          puzzle[row][col] = 0;
+          
+          if (countSolutions(puzzle) == 1) {
+            removed++;
+          } else {
+            puzzle[row][col] = backup;
+          }
+          
+          if (attempts % 10 == 0) {
+            await Future.microtask(() {});
+          }
+        }
+        
+        _evilPuzzleCache.add(CachedPuzzle(
+          List.generate(9, (i) => List.from(puzzle[i])),
+          List.generate(9, (i) => List.from(solution[i]))
+        ));
+      }
+    } finally {
+      _isGenerating = false;
     }
+  }
+
+  // Clear caches when memory pressure is detected
+  static void clearCaches() {
+    _masterPuzzleCache.clear();
+    _evilPuzzleCache.clear();
   }
 
   // --- Human-style solver core ---
@@ -725,7 +750,7 @@ class PuzzleGenerator {
         Map<String, int> color = {};
         bool colored = false;
         void dfs(int idx, int c) {
-          String key = cells[idx][0].toString() + ',' + cells[idx][1].toString();
+          String key = '${cells[idx][0]},${cells[idx][1]}';
           if (color.containsKey(key)) return;
           color[key] = c;
           for (int j = 0; j < cells.length; j++) {
@@ -740,14 +765,14 @@ class PuzzleGenerator {
         // If any two cells of the same color see each other, eliminate num from all cells of that color
         for (int i = 0; i < cells.length; i++) {
           for (int j = i + 1; j < cells.length; j++) {
-            if (color[cells[i][0].toString() + ',' + cells[i][1].toString()] ==
-                color[cells[j][0].toString() + ',' + cells[j][1].toString()] &&
+            if (color['${cells[i][0]},${cells[i][1]}'] ==
+                color['${cells[j][0]},${cells[j][1]}'] &&
                 _cellsSeeEachOther(cells[i], cells[j])) {
               // Eliminate num from all cells of this color
-              int badColor = color[cells[i][0].toString() + ',' + cells[i][1].toString()] ?? 0;
+              int badColor = color['${cells[i][0]},${cells[i][1]}'] ?? 0;
               bool eliminated = false;
               for (int k = 0; k < cells.length; k++) {
-                if (color[cells[k][0].toString() + ',' + cells[k][1].toString()] == badColor) {
+                if (color['${cells[k][0]},${cells[k][1]}'] == badColor) {
                   if (candidates[cells[k][0]][cells[k][1]].remove(num)) eliminated = true;
                 }
               }

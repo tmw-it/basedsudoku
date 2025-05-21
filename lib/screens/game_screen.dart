@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:cool_sudoku/models/sudoku_game.dart';
-import 'package:cool_sudoku/widgets/number_pad.dart';
-import 'package:cool_sudoku/widgets/sudoku_board.dart';
-import 'package:cool_sudoku/widgets/timer_widget.dart';
-import 'package:cool_sudoku/theme/nord_theme.dart';
+import 'package:based_sudoku/models/sudoku_game.dart';
+import 'package:based_sudoku/widgets/number_pad.dart';
+import 'package:based_sudoku/widgets/sudoku_board.dart';
+import 'package:based_sudoku/widgets/timer_widget.dart';
+import 'package:based_sudoku/theme/nord_theme.dart';
 import 'dart:math';
-import 'package:cool_sudoku/utils/puzzle_generator.dart';
-import 'package:cool_sudoku/screens/settings_page.dart';
-import 'package:cool_sudoku/models/settings_model.dart';
+import 'package:based_sudoku/screens/settings_page.dart';
+import 'package:based_sudoku/models/settings_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'package:cool_sudoku/widgets/app_footer.dart';
-import 'package:cool_sudoku/screens/landing_screen.dart';
-import 'package:cool_sudoku/screens/about_page.dart';
+import 'package:based_sudoku/widgets/app_footer.dart';
+import 'package:based_sudoku/screens/landing_screen.dart';
+import 'package:based_sudoku/screens/about_page.dart';
+import 'dart:convert';
 
 class GameScreen extends StatefulWidget {
   final Difficulty difficulty;
-  final void Function(Difficulty) onNewGame;
+  final void Function(Difficulty, {bool forceNew}) onNewGame;
 
   const GameScreen({super.key, required this.difficulty, required this.onNewGame});
 
@@ -26,12 +26,19 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   bool isNoteMode = false;
   bool _shiftHeld = false;
-  final FocusNode _focusNode = FocusNode();
+  late FocusNode _focusNode;
   bool _congratsShown = false;
   Timer? _inactivityTimer;
+  Timer? _saveDebounceTimer;
+  static const String kSavedGameKey = 'based_sudoku_saved_game';
+  late SudokuGame _game;
+  DateTime? _lastInteractionTime;
+  DateTime? _lastSaveTime;
+  static const _saveDebounceDuration = Duration(seconds: 2);
+  static const _minSaveInterval = Duration(seconds: 5);
 
   static const List<String> _genZCongrats = [
     "Sheesh! You just Sudoku'd that grid into oblivion!",
@@ -56,6 +63,113 @@ class _GameScreenState extends State<GameScreen> {
     "You're on Sudoku X-Games mode!",
   ];
 
+  void _setupInactivityTimer() {
+    _inactivityTimer?.cancel();
+    final settings = Provider.of<SettingsModel>(context, listen: false);
+    _inactivityTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        final now = DateTime.now();
+        if (_lastInteractionTime != null && 
+            now.difference(_lastInteractionTime!).inSeconds >= settings.pauseDelaySeconds) {
+          _game.setPaused(true);
+          timer.cancel();
+        }
+      },
+    );
+  }
+
+  void _resetInactivityTimer() {
+    _lastInteractionTime = DateTime.now();
+    if (_inactivityTimer == null || !_inactivityTimer!.isActive) {
+      _setupInactivityTimer();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _game = Provider.of<SudokuGame>(context, listen: false);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _game = Provider.of<SudokuGame>(context, listen: false);
+    _setupInactivityTimer();
+  }
+
+  Future<void> _saveGame() async {
+    // Cancel any pending save
+    _saveDebounceTimer?.cancel();
+    
+    // Check if enough time has passed since last save
+    final now = DateTime.now();
+    if (_lastSaveTime != null && 
+        now.difference(_lastSaveTime!) < _minSaveInterval) {
+      return;
+    }
+
+    // Debounce the save operation
+    _saveDebounceTimer = Timer(_saveDebounceDuration, () async {
+      if (!mounted) return;
+      
+      final prefs = await SharedPreferences.getInstance();
+      if (!_game.isCompleted) {
+        final jsonStr = json.encode(_game.toJson());
+        await prefs.setString(kSavedGameKey, jsonStr);
+        _lastSaveTime = DateTime.now();
+      } else {
+        await _clearSavedGame();
+      }
+    });
+  }
+
+  Future<void> _clearSavedGame() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kSavedGameKey);
+  }
+
+  void _onGameChanged() {
+    // Only save if the game state has actually changed
+    if (!_game.isCompleted) {
+      _saveGame();
+    } else {
+      _clearSavedGame();
+    }
+  }
+
+  void _handleGameStateChanges(SudokuGame game) {
+    // Handle game completion
+    if (game.isCompleted && !_congratsShown && !game.isPaused) {
+      // Clear saved game immediately when completed
+      _clearSavedGame();
+      
+      Future.microtask(() {
+        if (mounted && !_congratsShown && !game.isPaused) {
+          _showCongratsDialog(context, game);
+          setState(() => _congratsShown = true);
+        }
+      });
+    } else if (!game.isCompleted && _congratsShown) {
+      setState(() => _congratsShown = false);
+    }
+
+    // Handle pause state
+    if (game.isPaused && ModalRoute.of(context)?.isCurrent == true) {
+      Future.microtask(() {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          _showPauseDialog(context);
+        }
+      });
+    }
+  }
+
   void _showCongratsDialog(BuildContext context, SudokuGame game) async {
     // Update stats before showing dialog
     final prefs = await SharedPreferences.getInstance();
@@ -66,15 +180,17 @@ class _GameScreenState extends State<GameScreen> {
     int games = prefs.getInt(gamesKey) ?? 0;
     int? best = prefs.getInt(bestKey);
     int total = prefs.getInt(totalKey) ?? 0;
-    // Use the actual elapsed time
     int seconds = game.timeElapsed.inSeconds;
-    // If you add a timeElapsed to SudokuGame, use: int seconds = game.timeElapsed.inSeconds;
     games++;
     if (seconds > 0 && (best == null || seconds < best)) best = seconds;
     if (seconds > 0) total += seconds;
     await prefs.setInt(gamesKey, games);
     if (best != null) await prefs.setInt(bestKey, best);
     await prefs.setInt(totalKey, total);
+    
+    // Ensure saved game is cleared
+    await _clearSavedGame();
+    
     final random = Random();
     final phrase = _genZCongrats[random.nextInt(_genZCongrats.length)];
     showDialog(
@@ -97,7 +213,7 @@ class _GameScreenState extends State<GameScreen> {
                       builder: (context, setState) => DropdownButton<Difficulty>(
                         value: temp,
                         onChanged: (d) => setState(() => temp = d!),
-                        items: [
+                        items: const [
                           DropdownMenuItem(value: Difficulty.easy, child: Text('Easy')),
                           DropdownMenuItem(value: Difficulty.medium, child: Text('Medium')),
                           DropdownMenuItem(value: Difficulty.hard, child: Text('Hard')),
@@ -121,7 +237,7 @@ class _GameScreenState extends State<GameScreen> {
                   _congratsShown = false;
                 });
                 game.setCompleted(false);
-                widget.onNewGame(selected);
+                widget.onNewGame(selected, forceNew: true);
               }
             },
             child: const Text('Change Difficulty'),
@@ -134,7 +250,7 @@ class _GameScreenState extends State<GameScreen> {
                 _congratsShown = false;
               });
               game.setCompleted(false);
-              widget.onNewGame(game.difficulty);
+              widget.onNewGame(game.difficulty, forceNew: true);
             },
             child: const Text('New Puzzle'),
           ),
@@ -260,22 +376,31 @@ class _GameScreenState extends State<GameScreen> {
     return KeyEventResult.ignored;
   }
 
-  void _resetInactivityTimer() {
-    _inactivityTimer?.cancel();
-    final settings = Provider.of<SettingsModel>(context, listen: false);
-    _inactivityTimer = Timer(Duration(seconds: settings.pauseDelaySeconds), () {
-      if (!mounted) return;
-      Provider.of<SudokuGame>(context, listen: false).setPaused(true);
-    });
-  }
-
   @override
   void dispose() {
-    // Pause the game when leaving the screen
-    Provider.of<SudokuGame>(context, listen: false).setPaused(true);
+    // Only save if the game isn't completed
+    if (!_game.isCompleted) {
+      _saveDebounceTimer?.cancel();
+      _saveGame();
+    } else {
+      _clearSavedGame();
+    }
+    _game.setPaused(true);
     _focusNode.dispose();
     _inactivityTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    // Only save if the game isn't completed
+    if (!_game.isCompleted) {
+      _game.setPaused(true);
+      _saveGame();
+    } else {
+      _clearSavedGame();
+    }
+    super.deactivate();
   }
 
   @override
@@ -286,85 +411,19 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsModel>(context);
-    // Reset inactivity timer on every build (user interaction)
-    WidgetsBinding.instance.addPostFrameCallback((_) => _resetInactivityTimer());
+    
+    // Only reset timer on actual user interaction and when the screen is visible
+    if (ModalRoute.of(context)?.isCurrent == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _resetInactivityTimer());
+    }
+
     return Consumer<SudokuGame>(
       builder: (context, game, _) {
-        print('GameScreen build: isCompleted=${game.isCompleted}, isPaused=${game.isPaused}, _congratsShown=$_congratsShown');
-        // Robust congrats dialog logic
-        if (game.isCompleted && !_congratsShown && !game.isPaused) {
-          print('Attempting to show congrats dialog...');
-          Future.delayed(Duration.zero, () {
-            if (mounted && !_congratsShown && !game.isPaused) {
-              print('Showing congrats dialog!');
-              _showCongratsDialog(context, game);
-              setState(() {
-                _congratsShown = true;
-              });
-            }
-          });
-        }
-        if (!game.isCompleted && _congratsShown) {
-          print('Resetting _congratsShown');
-          _congratsShown = false;
-        }
-        // Show pause dialog if paused and route is current
-        if (game.isPaused) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (ModalRoute.of(context)?.isCurrent == true) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Game Paused'),
-                  content: const Text('Press Resume to continue playing.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Provider.of<SudokuGame>(context, listen: false).setPaused(false);
-                        Navigator.of(dialogContext).pop();
-                      },
-                      child: const Text('Resume'),
-                    ),
-                  ],
-                ),
-              );
-            }
-          });
-        }
+        // Move dialog logic to a separate method to reduce build complexity
+        _handleGameStateChanges(game);
+        
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Sudoku'),
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back),
-              onPressed: () {
-                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => LandingScreen(onStartGame: widget.onNewGame),
-                  ),
-                  (route) => false,
-                );
-              },
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.info_outline, color: NordColors.nord6),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const AboutPage()),
-                  );
-                },
-              ),
-              IconButton(
-                icon: Icon(Icons.settings, color: NordColors.nord6),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => SettingsPage(onNewGame: widget.onNewGame)),
-                  );
-                },
-              ),
-            ],
-          ),
+          appBar: _buildAppBar(context, game),
           body: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: _resetInactivityTimer,
@@ -373,68 +432,7 @@ class _GameScreenState extends State<GameScreen> {
               children: [
                 if (!settings.hideTimer) const TimerWidget(),
                 Expanded(
-                  child: Consumer<SudokuGame>(
-                    builder: (context, game, child) {
-                      return Focus(
-                        focusNode: _focusNode,
-                        autofocus: true,
-                        onKey: (node, event) => _handleKeyEvent(node, event, game),
-                        child: GestureDetector(
-                          onTap: () => _focusNode.requestFocus(),
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: Consumer<SudokuGame>(
-                                  builder: (context, game, _) => SudokuBoard(
-                                    game: game,
-                                    selectedRow: game.selectedRow,
-                                    selectedCol: game.selectedCol,
-                                    onCellSelected: (row, col) {
-                                      game.setSelectedCell(row, col);
-                                      _focusNode.requestFocus();
-                                    },
-                                  ),
-                                ),
-                              ),
-                              NumberPad(
-                                isNoteMode: isNoteMode,
-                                onNumberPressed: (number) {
-                                  if (game.selectedRow != null && game.selectedCol != null) {
-                                    if (_shiftHeld ? !isNoteMode : isNoteMode) {
-                                      game.toggleNote(game.selectedRow!, game.selectedCol!, number);
-                                    } else {
-                                      game.setValue(game.selectedRow!, game.selectedCol!, number);
-                                    }
-                                  }
-                                },
-                                onClearPressed: () {
-                                  if (game.selectedRow != null && game.selectedCol != null) {
-                                    game.clearCell(game.selectedRow!, game.selectedCol!);
-                                  }
-                                },
-                                onNoteModeToggled: () {
-                                  setState(() {
-                                    isNoteMode = !isNoteMode;
-                                  });
-                                },
-                                onUndo: game.canUndo() ? () {
-                                  setState(() {
-                                    game.undo();
-                                  });
-                                } : null,
-                                onRedo: game.canRedo() ? () {
-                                  setState(() {
-                                    game.redo();
-                                  });
-                                } : null,
-                                usedNumbersBoard: game.puzzle,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  child: _buildGameContent(context, game),
                 ),
                 const AppFooter(),
               ],
@@ -445,10 +443,158 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  @override
-  void deactivate() {
-    // Pause the game when leaving the screen
-    Provider.of<SudokuGame>(context, listen: false).setPaused(true);
-    super.deactivate();
+  void _showPauseDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Game Paused'),
+        content: const Text('Press Resume to continue playing.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Provider.of<SudokuGame>(context, listen: false).setPaused(false);
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text('Resume'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGameContent(BuildContext context, SudokuGame game) {
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKey: (node, event) => _handleKeyEvent(node, event, game),
+      child: GestureDetector(
+        onTap: () => _focusNode.requestFocus(),
+        child: Column(
+          children: [
+            Expanded(
+              child: SudokuBoard(
+                key: ValueKey(game.id), // Add key to prevent unnecessary rebuilds
+                game: game,
+                selectedRow: game.selectedRow,
+                selectedCol: game.selectedCol,
+                onCellSelected: (row, col) {
+                  game.setSelectedCell(row, col);
+                  _focusNode.requestFocus();
+                },
+              ),
+            ),
+            NumberPad(
+              key: ValueKey('${game.id}_$isNoteMode'), // Add key to prevent unnecessary rebuilds
+              isNoteMode: isNoteMode,
+              onNumberPressed: (number) {
+                if (game.selectedRow != null && game.selectedCol != null) {
+                  if (_shiftHeld ? !isNoteMode : isNoteMode) {
+                    game.toggleNote(game.selectedRow!, game.selectedCol!, number);
+                  } else {
+                    game.setValue(game.selectedRow!, game.selectedCol!, number);
+                  }
+                }
+              },
+              onClearPressed: () {
+                if (game.selectedRow != null && game.selectedCol != null) {
+                  game.clearCell(game.selectedRow!, game.selectedCol!);
+                }
+              },
+              onNoteModeToggled: () {
+                setState(() => isNoteMode = !isNoteMode);
+              },
+              onUndo: game.canUndo() ? () {
+                setState(() => game.undo());
+              } : null,
+              onRedo: game.canRedo() ? () {
+                setState(() => game.redo());
+              } : null,
+              usedNumbersBoard: game.puzzle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context, SudokuGame game) {
+    return AppBar(
+      title: const Text(
+        'Based Sudoku',
+        style: TextStyle(
+          fontFamily: 'Cubano',
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => LandingScreen(onStartGame: widget.onNewGame),
+            ),
+            (route) => false,
+          );
+        },
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.info_outline, color: NordColors.nord6),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const AboutPage()),
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.settings, color: NordColors.nord6),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => SettingsPage(onNewGame: widget.onNewGame)),
+            );
+          },
+        ),
+        _buildGameMenu(context, game),
+      ],
+    );
+  }
+
+  Widget _buildGameMenu(BuildContext context, SudokuGame game) {
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (value == 'reset') {
+          _resetGame(game);
+        } else if (value == 'new') {
+          widget.onNewGame(widget.difficulty, forceNew: true);
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'reset',
+          child: Text('Reset Puzzle'),
+        ),
+        PopupMenuItem<String>(
+          value: 'new',
+          child: Text('New Puzzle'),
+        ),
+      ],
+    );
+  }
+
+  void _resetGame(SudokuGame game) {
+    for (int i = 0; i < 9; i++) {
+      for (int j = 0; j < 9; j++) {
+        if (!game.isFixed[i][j]) {
+          game.puzzle[i][j] = 0;
+          game.notes[i][j].clear();
+        }
+      }
+    }
+    game.moveHistory.clear();
+    game.redoHistory.clear();
+    game.setSelectedCell(null, null);
+    game.notifyListeners();
   }
 } 

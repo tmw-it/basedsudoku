@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/sudoku_game.dart';
 import '../theme/nord_theme.dart';
@@ -16,12 +15,13 @@ class _TimerWidgetState extends State<TimerWidget> {
   Timer? _timer;
   Duration _elapsed = Duration.zero;
   List<List<int>>? _lastPuzzleRef;
+  SudokuGame? _game;
 
   @override
   void initState() {
     super.initState();
-    final game = context.read<SudokuGame>();
-    _elapsed = game.timeElapsed;
+    _game = context.read<SudokuGame>();
+    _elapsed = _game!.timeElapsed;
     _startTimer();
   }
 
@@ -29,6 +29,7 @@ class _TimerWidgetState extends State<TimerWidget> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final game = context.watch<SudokuGame>();
+    _game = game;
     if (_lastPuzzleRef != game.puzzle) {
       setState(() {
         _elapsed = game.timeElapsed;
@@ -40,9 +41,8 @@ class _TimerWidgetState extends State<TimerWidget> {
   @override
   void dispose() {
     _timer?.cancel();
-    final game = context.read<SudokuGame>();
-    if (_elapsed != game.timeElapsed) {
-      game.setTimeElapsed(_elapsed);
+    if (_game != null && _elapsed != _game!.timeElapsed) {
+      _game!.setTimeElapsed(_elapsed);
     }
     super.dispose();
   }
@@ -51,8 +51,8 @@ class _TimerWidgetState extends State<TimerWidget> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       
-      final game = context.read<SudokuGame>();
-      if (game.isPaused || game.isCompleted) return;
+      final game = _game;
+      if (game == null || game.isPaused || game.isCompleted) return;
 
       setState(() {
         _elapsed += const Duration(seconds: 1);

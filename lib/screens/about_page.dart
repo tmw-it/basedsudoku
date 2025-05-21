@@ -12,16 +12,25 @@ class AboutPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('About'),
+        title: const Text(
+          'About',
+          style: TextStyle(
+            fontFamily: 'Cubano',
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
           const Text(
-            'Based Sudoku™',
+            'Based Sudoku',
             style: TextStyle(
-              fontSize: 24,
+              fontFamily: 'Cubano',
+              fontSize: 32,
               fontWeight: FontWeight.bold,
+              color: NordColors.nord10,
             ),
             textAlign: TextAlign.center,
           ),
@@ -34,8 +43,9 @@ class AboutPage extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          const Text(
-            'A modern, user-friendly Sudoku game with a beautiful Nord theme.',
+          Text(
+            'Based Sudoku is a modern, beautiful, and user-friendly Sudoku app. Built with Flutter. Open source. No ads. No nonsense.',
+            style: Theme.of(context).textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -75,7 +85,6 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '© 2024 taytay. All rights reserved.\n'
-            'Based Sudoku™ is a trademark of taytay.\n\n'
             'This software is licensed under the MIT License.',
             style: TextStyle(
               color: textColor.withOpacity(0.7),
@@ -90,13 +99,22 @@ class AboutPage extends StatelessWidget {
                 await launchUrl(url);
               }
             },
-            child: Text(
+            child: const Text(
               'View on GitHub',
               style: TextStyle(
                 color: NordColors.nord10,
                 decoration: TextDecoration.underline,
               ),
             ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Branding and Usage Restrictions',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          Text(
+            'The name and branding of Based Sudoku, as well as the visual design, app store presence, and associated assets, are protected. Please do not use the name or branding for your own app or project.',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),

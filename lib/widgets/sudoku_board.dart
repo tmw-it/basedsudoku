@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cool_sudoku/theme/nord_theme.dart';
+import 'package:based_sudoku/theme/nord_theme.dart';
 import '../models/sudoku_game.dart';
 import '../models/settings_model.dart';
 
@@ -189,7 +189,7 @@ class SudokuBoard extends StatelessWidget {
                                   child: Container(
                                     width: cellSize * 0.2,
                                     height: cellSize * 0.2,
-                                    decoration: BoxDecoration(
+                                    decoration: const BoxDecoration(
                                       color: Colors.red,
                                       shape: BoxShape.circle,
                                     ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cool_sudoku/models/sudoku_game.dart';
+import 'package:based_sudoku/models/sudoku_game.dart';
 
 class Technique {
   final String name;
@@ -114,7 +114,7 @@ class StaticSudokuBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cellSize = 28.0;
+    const cellSize = 28.0;
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[400]!, width: 2),
@@ -157,7 +157,7 @@ class StaticSudokuBoard extends StatelessWidget {
               child: board[row][col] != 0
                   ? Text(
                       board[row][col].toString(),
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     )
                   : (cellCandidates != null && cellCandidates.isNotEmpty)
                       ? Wrap(
